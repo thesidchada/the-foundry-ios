@@ -12,7 +12,7 @@ import type {
   Profile,
 } from '../types';
 
-const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'https://your-app.replit.app';
+const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'https://8ae68bc9-7959-4664-b1e0-87ee0b7abd11-00-yajgfe12b17d.picard.replit.dev';
 
 interface ApiOptions {
   method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
