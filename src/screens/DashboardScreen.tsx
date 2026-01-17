@@ -1,23 +1,16 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, ScrollView, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api/client';
-
-const THEME = {
-  primary: '#c45c26',
-  background: '#0a0a0a',
-  card: '#18181b',
-  border: '#27272a',
-  text: '#fafafa',
-  muted: '#71717a',
-};
+import { THEME } from '../theme';
+import type { Protocol } from '../types';
 
 export default function DashboardScreen() {
   const queryClient = useQueryClient();
-  const today = new Date().toISOString().split('T')[0];
+  const today = useMemo(() => new Date().toISOString().split('T')[0], []);
 
-  const { data: protocols = [], isLoading } = useQuery({
+  const { data: protocols = [], isLoading, error } = useQuery({
     queryKey: ['protocols', today],
     queryFn: () => api.protocols.getByDate(today),
   });
@@ -30,8 +23,26 @@ export default function DashboardScreen() {
     },
   });
 
-  const completedCount = protocols.filter((p: any) => p.completed).length;
-  const totalCount = protocols.length;
+  const { completedCount, totalCount, progressPercent } = useMemo(() => {
+    const completed = protocols.filter((p: Protocol) => p.completed).length;
+    const total = protocols.length;
+    return {
+      completedCount: completed,
+      totalCount: total,
+      progressPercent: total > 0 ? (completed / total) * 100 : 0,
+    };
+  }, [protocols]);
+
+  if (error) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorText}>Failed to load protocols</Text>
+          <Text style={styles.errorSubtext}>{error.message}</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container}>
@@ -47,18 +58,15 @@ export default function DashboardScreen() {
             <Text style={styles.progressCount}>{completedCount}/{totalCount}</Text>
           </View>
           <View style={styles.progressBar}>
-            <View 
-              style={[
-                styles.progressFill, 
-                { width: totalCount > 0 ? `${(completedCount / totalCount) * 100}%` : '0%' }
-              ]} 
+            <View
+              style={[styles.progressFill, { width: `${progressPercent}%` }]}
             />
           </View>
         </View>
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Protocol Items</Text>
-          
+
           {isLoading ? (
             <ActivityIndicator color={THEME.primary} size="large" />
           ) : protocols.length === 0 ? (
@@ -67,7 +75,7 @@ export default function DashboardScreen() {
               <Text style={styles.emptySubtext}>Add items to track your daily routine</Text>
             </View>
           ) : (
-            protocols.map((item: any) => (
+            protocols.map((item: Protocol) => (
               <TouchableOpacity
                 key={item.id}
                 style={[styles.protocolItem, item.completed && styles.protocolItemCompleted]}
@@ -170,6 +178,23 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: THEME.muted,
     marginTop: 4,
+  },
+  errorContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 20,
+  },
+  errorText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: THEME.error,
+  },
+  errorSubtext: {
+    fontSize: 14,
+    color: THEME.muted,
+    marginTop: 4,
+    textAlign: 'center',
   },
   protocolItem: {
     flexDirection: 'row',

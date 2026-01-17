@@ -1,39 +1,49 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, ScrollView, StyleSheet, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../api/client';
+import { THEME } from '../theme';
+import type { HealthMetric, MetricType } from '../types';
 
-const THEME = {
-  primary: '#c45c26',
-  background: '#0a0a0a',
-  card: '#18181b',
-  border: '#27272a',
-  text: '#fafafa',
-  muted: '#71717a',
-};
-
-const metricConfigs: Record<string, { icon: string; color: string; unit: string }> = {
+const metricConfigs: Record<MetricType, { icon: string; color: string; unit: string }> = {
   sleep: { icon: '🌙', color: '#8b5cf6', unit: 'hours' },
-  recovery: { icon: '💚', color: '#10b981', unit: '%' },
-  rhr: { icon: '❤️', color: '#ef4444', unit: 'bpm' },
+  recovery: { icon: '💚', color: THEME.success, unit: '%' },
+  rhr: { icon: '❤️', color: THEME.error, unit: 'bpm' },
   hrv: { icon: '📈', color: '#3b82f6', unit: 'ms' },
   steps: { icon: '👟', color: '#0ea5e9', unit: 'steps' },
-  calories: { icon: '🔥', color: '#f97316', unit: 'kcal' },
+  calories: { icon: '🔥', color: THEME.warning, unit: 'kcal' },
 };
 
+const defaultConfig = { icon: '📊', color: THEME.primary, unit: '' };
+
 export default function TrackerScreen() {
-  const { data: metrics = [], isLoading } = useQuery({
+  const { data: metrics = [], isLoading, error } = useQuery({
     queryKey: ['healthMetrics'],
     queryFn: api.healthMetrics.getRecent,
   });
 
-  const latestMetrics = metrics.reduce((acc: Record<string, any>, m: any) => {
-    if (!acc[m.type] || new Date(m.date) > new Date(acc[m.type].date)) {
-      acc[m.type] = m;
-    }
-    return acc;
-  }, {});
+  const latestMetrics = useMemo(() => {
+    return metrics.reduce((acc: Record<string, HealthMetric>, m: HealthMetric) => {
+      if (!acc[m.type] || new Date(m.date) > new Date(acc[m.type].date)) {
+        acc[m.type] = m;
+      }
+      return acc;
+    }, {});
+  }, [metrics]);
+
+  const recentActivity = useMemo(() => metrics.slice(0, 10), [metrics]);
+
+  if (error) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorText}>Failed to load metrics</Text>
+          <Text style={styles.errorSubtext}>{error.message}</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container}>
@@ -55,8 +65,8 @@ export default function TrackerScreen() {
           </View>
         ) : (
           <View style={styles.metricsGrid}>
-            {Object.entries(latestMetrics).map(([type, metric]: [string, any]) => {
-              const config = metricConfigs[type] || { icon: '📊', color: THEME.primary, unit: '' };
+            {Object.entries(latestMetrics).map(([type, metric]) => {
+              const config = metricConfigs[type as MetricType] || defaultConfig;
               return (
                 <View key={type} style={styles.metricCard}>
                   <View style={[styles.metricIcon, { backgroundColor: `${config.color}20` }]}>
@@ -73,29 +83,31 @@ export default function TrackerScreen() {
           </View>
         )}
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Recent Activity</Text>
-          
-          {metrics.slice(0, 10).map((metric: any, index: number) => {
-            const config = metricConfigs[metric.type] || { icon: '📊', color: THEME.primary, unit: '' };
-            return (
-              <View key={`${metric.id}-${index}`} style={styles.activityItem}>
-                <View style={[styles.activityIcon, { backgroundColor: `${config.color}20` }]}>
-                  <Text>{config.icon}</Text>
-                </View>
-                <View style={styles.activityContent}>
-                  <Text style={styles.activityTitle}>
-                    {metric.type.charAt(0).toUpperCase() + metric.type.slice(1)}
+        {recentActivity.length > 0 && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Recent Activity</Text>
+
+            {recentActivity.map((metric: HealthMetric, index: number) => {
+              const config = metricConfigs[metric.type] || defaultConfig;
+              return (
+                <View key={`${metric.id}-${index}`} style={styles.activityItem}>
+                  <View style={[styles.activityIcon, { backgroundColor: `${config.color}20` }]}>
+                    <Text>{config.icon}</Text>
+                  </View>
+                  <View style={styles.activityContent}>
+                    <Text style={styles.activityTitle}>
+                      {metric.type.charAt(0).toUpperCase() + metric.type.slice(1)}
+                    </Text>
+                    <Text style={styles.activityDate}>{metric.date}</Text>
+                  </View>
+                  <Text style={[styles.activityValue, { color: config.color }]}>
+                    {metric.value} {config.unit}
                   </Text>
-                  <Text style={styles.activityDate}>{metric.date}</Text>
                 </View>
-                <Text style={[styles.activityValue, { color: config.color }]}>
-                  {metric.value} {config.unit}
-                </Text>
-              </View>
-            );
-          })}
-        </View>
+              );
+            })}
+          </View>
+        )}
       </ScrollView>
     </SafeAreaView>
   );
@@ -141,6 +153,23 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: THEME.muted,
     marginTop: 4,
+  },
+  errorContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 20,
+  },
+  errorText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: THEME.error,
+  },
+  errorSubtext: {
+    fontSize: 14,
+    color: THEME.muted,
+    marginTop: 4,
+    textAlign: 'center',
   },
   metricsGrid: {
     flexDirection: 'row',

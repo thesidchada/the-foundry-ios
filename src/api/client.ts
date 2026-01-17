@@ -1,4 +1,16 @@
 import * as SecureStore from 'expo-secure-store';
+import type {
+  User,
+  Protocol,
+  Booking,
+  HealthMetric,
+  Biomarker,
+  Achievement,
+  AchievementDefinition,
+  AchievementProgress,
+  CheckAchievementsResponse,
+  Profile,
+} from '../types';
 
 const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'https://your-app.replit.app';
 
@@ -58,39 +70,50 @@ export async function apiClient<T>(endpoint: string, options: ApiOptions = {}): 
 
 export const api = {
   protocols: {
-    getByDate: (date: string) => apiClient<any[]>(`/api/protocols/${date}`),
-    create: (data: any) => apiClient<any>('/api/protocols', { method: 'POST', body: data }),
-    update: (id: string, data: any) => apiClient<any>(`/api/protocols/${id}`, { method: 'PATCH', body: data }),
-    delete: (id: string) => apiClient<void>(`/api/protocols/${id}`, { method: 'DELETE' }),
+    getByDate: (date: string) => apiClient<Protocol[]>(`/api/protocols/${date}`),
+    create: (data: Omit<Protocol, 'id' | 'userId' | 'createdAt'>) =>
+      apiClient<Protocol>('/api/protocols', { method: 'POST', body: data }),
+    update: (id: number | string, data: Partial<Protocol>) =>
+      apiClient<Protocol>(`/api/protocols/${id}`, { method: 'PATCH', body: data }),
+    delete: (id: number | string) =>
+      apiClient<void>(`/api/protocols/${id}`, { method: 'DELETE' }),
   },
   bookings: {
-    getAll: () => apiClient<any[]>('/api/bookings'),
-    create: (data: any) => apiClient<any>('/api/bookings', { method: 'POST', body: data }),
-    update: (id: string, status: string) => apiClient<any>(`/api/bookings/${id}`, { method: 'PATCH', body: { status } }),
-    delete: (id: string) => apiClient<void>(`/api/bookings/${id}`, { method: 'DELETE' }),
+    getAll: () => apiClient<Booking[]>('/api/bookings'),
+    create: (data: Omit<Booking, 'id' | 'userId' | 'createdAt'>) =>
+      apiClient<Booking>('/api/bookings', { method: 'POST', body: data }),
+    update: (id: number | string, status: string) =>
+      apiClient<Booking>(`/api/bookings/${id}`, { method: 'PATCH', body: { status } }),
+    delete: (id: number | string) =>
+      apiClient<void>(`/api/bookings/${id}`, { method: 'DELETE' }),
   },
   healthMetrics: {
-    getRange: (startDate: string, endDate: string) => 
-      apiClient<any[]>(`/api/metrics?startDate=${startDate}&endDate=${endDate}`),
-    getByDate: (date: string) => apiClient<any>(`/api/metrics/${date}`),
-    upsert: (data: any) => apiClient<any>('/api/metrics', { method: 'POST', body: data }),
+    getRange: (startDate: string, endDate: string) =>
+      apiClient<HealthMetric[]>(`/api/metrics?startDate=${startDate}&endDate=${endDate}`),
+    getByDate: (date: string) => apiClient<HealthMetric>(`/api/metrics/${date}`),
+    getRecent: () => apiClient<HealthMetric[]>('/api/metrics/recent'),
+    upsert: (data: Omit<HealthMetric, 'id' | 'userId' | 'createdAt'>) =>
+      apiClient<HealthMetric>('/api/metrics', { method: 'POST', body: data }),
   },
   biomarkers: {
-    getAll: () => apiClient<any[]>('/api/biomarkers'),
-    create: (data: any) => apiClient<any>('/api/biomarkers', { method: 'POST', body: data }),
+    getAll: () => apiClient<Biomarker[]>('/api/biomarkers'),
+    create: (data: Omit<Biomarker, 'id' | 'userId' | 'createdAt'>) =>
+      apiClient<Biomarker>('/api/biomarkers', { method: 'POST', body: data }),
   },
   achievements: {
-    getAll: () => apiClient<any[]>('/api/achievements'),
-    getProgress: () => apiClient<any[]>('/api/achievements/progress'),
-    getDefinitions: () => apiClient<any[]>('/api/achievements/definitions'),
-    check: () => apiClient<{ newAchievements: any[]; totalNew: number }>('/api/achievements/check', { method: 'POST' }),
+    getAll: () => apiClient<Achievement[]>('/api/achievements'),
+    getProgress: () => apiClient<AchievementProgress[]>('/api/achievements/progress'),
+    getDefinitions: () => apiClient<AchievementDefinition[]>('/api/achievements/definitions'),
+    check: () =>
+      apiClient<CheckAchievementsResponse>('/api/achievements/check', { method: 'POST' }),
   },
   profile: {
-    get: () => apiClient<any>('/api/profile'),
-    upsert: (data: any) => apiClient<any>('/api/profile', { method: 'POST', body: data }),
+    get: () => apiClient<Profile>('/api/profile'),
+    upsert: (data: Partial<Profile>) =>
+      apiClient<Profile>('/api/profile', { method: 'POST', body: data }),
   },
   user: {
-    getCurrent: () => apiClient<any>('/api/auth/user'),
+    getCurrent: () => apiClient<User>('/api/auth/user'),
     logout: () => apiClient<void>('/api/auth/logout', { method: 'POST' }),
   },
 };

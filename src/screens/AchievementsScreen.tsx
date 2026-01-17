@@ -1,19 +1,11 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, ScrollView, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
 import { api } from '../api/client';
-
-const THEME = {
-  primary: '#c45c26',
-  background: '#0a0a0a',
-  card: '#18181b',
-  border: '#27272a',
-  text: '#fafafa',
-  muted: '#71717a',
-  success: '#22c55e',
-};
+import { THEME } from '../theme';
+import type { Achievement, AchievementDefinition, AchievementProgress } from '../types';
 
 const iconMap: Record<string, keyof typeof Ionicons.glyphMap> = {
   CheckCircle: 'checkmark-circle',
@@ -29,12 +21,12 @@ const iconMap: Record<string, keyof typeof Ionicons.glyphMap> = {
 export default function AchievementsScreen() {
   const queryClient = useQueryClient();
 
-  const { data: definitions = [], isLoading: loadingDefs } = useQuery({
+  const { data: definitions = [], isLoading: loadingDefs, error: defsError } = useQuery({
     queryKey: ['achievements', 'definitions'],
     queryFn: () => api.achievements.getDefinitions(),
   });
 
-  const { data: progress = [], isLoading: loadingProgress } = useQuery({
+  const { data: progress = [], isLoading: loadingProgress, error: progressError } = useQuery({
     queryKey: ['achievements', 'progress'],
     queryFn: () => api.achievements.getProgress(),
   });
@@ -55,11 +47,31 @@ export default function AchievementsScreen() {
   });
 
   const isLoading = loadingDefs || loadingProgress;
-  const progressMap = new Map(progress.map((p: any) => [p.key, p]));
-  const unlockedKeys = new Set(unlocked.map((a: any) => a.achievementKey));
+  const error = defsError || progressError;
 
-  const unlockedCount = unlocked.length;
-  const totalCount = definitions.length;
+  const { progressMap, unlockedKeys, unlockedCount, totalCount } = useMemo(() => {
+    const pMap = new Map<string, AchievementProgress>(
+      progress.map((p: AchievementProgress) => [p.key, p])
+    );
+    const uKeys = new Set<string>(unlocked.map((a: Achievement) => a.achievementKey));
+    return {
+      progressMap: pMap,
+      unlockedKeys: uKeys,
+      unlockedCount: unlocked.length,
+      totalCount: definitions.length,
+    };
+  }, [progress, unlocked, definitions]);
+
+  if (error) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorText}>Failed to load achievements</Text>
+          <Text style={styles.errorSubtext}>{error.message}</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container}>
@@ -84,7 +96,7 @@ export default function AchievementsScreen() {
           <ActivityIndicator color={THEME.primary} size="large" style={{ marginTop: 40 }} />
         ) : (
           <View style={styles.grid}>
-            {definitions.map((def: any) => {
+            {definitions.map((def: AchievementDefinition) => {
               const prog = progressMap.get(def.key);
               const isUnlocked = unlockedKeys.has(def.key);
               const iconName = iconMap[def.icon] || 'ribbon';
@@ -105,7 +117,7 @@ export default function AchievementsScreen() {
                       <Ionicons name="lock-closed" size={24} color={THEME.muted} />
                     )}
                   </View>
-                  
+
                   <Text style={[styles.achievementTitle, !isUnlocked && styles.locked]}>
                     {def.title}
                   </Text>
@@ -173,6 +185,23 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     marginLeft: 8,
   },
+  errorContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 20,
+  },
+  errorText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: THEME.error,
+  },
+  errorSubtext: {
+    fontSize: 14,
+    color: THEME.muted,
+    marginTop: 4,
+    textAlign: 'center',
+  },
   grid: {
     padding: 20,
     paddingTop: 0,
@@ -187,8 +216,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   achievementCardUnlocked: {
-    borderColor: THEME.primary + '40',
-    backgroundColor: THEME.primary + '10',
+    borderColor: `${THEME.primary}40`,
+    backgroundColor: `${THEME.primary}10`,
   },
   iconContainer: {
     width: 56,
@@ -200,7 +229,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   iconContainerUnlocked: {
-    backgroundColor: THEME.primary + '20',
+    backgroundColor: `${THEME.primary}20`,
   },
   achievementTitle: {
     fontSize: 16,
